@@ -769,7 +769,8 @@ final class UIState: ObservableObject {
 
 /// Callbacks from the views back to the window controller.
 struct PeekActions {
-    var close: () -> Void = {}
+    var hide: () -> Void = {}
+    var quit: () -> Void = {}
     var resetPosition: () -> Void = {}
     var drag: (_ ended: Bool) -> Void = { _ in }
 }
@@ -1006,7 +1007,8 @@ extension View {
             }
             Divider()
             Button("Reset position", action: actions.resetPosition)
-            Button("Quit Claude Peek", action: actions.close)
+            Button("Hide for 30 minutes", action: actions.hide)
+            Button("Quit until next login", action: actions.quit)
         }
     }
 }
@@ -1127,7 +1129,7 @@ struct ExpandedView: View {
                         IconButton(symbol: "arrow.clockwise", help: "Check Slack now") { store.refreshSlack() }
                     }
                 }
-                IconButton(symbol: "xmark", help: "Quit Claude Peek", action: actions.close)
+                IconButton(symbol: "xmark", help: "Hide for 30 minutes", action: actions.hide)
             }
             .padding(.horizontal, 14)
             .frame(height: Metrics.header)
@@ -1331,7 +1333,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ note: Notification) {
         anchor = savedAnchor() ?? defaultAnchor()
         let actions = PeekActions(
-            close: { NSApp.terminate(nil) },
+            hide: { [weak self] in self?.hide() },
+            quit: { AppDelegate.quitUntilLogin() },
             resetPosition: { [weak self] in self?.resetPosition() },
             drag: { [weak self] ended in self?.drag(ended: ended) })
         let host = HoverHostingView(rootView: OverlayView(store: store, ui: ui, actions: actions))
@@ -1393,6 +1396,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             UserDefaults.standard.set([anchor.x, anchor.y], forKey: "anchor")
             layout(animated: false)
         }
+    }
+
+    /// × hides rather than quits: the login service restarts Peek whenever it stops, so quitting
+    /// would only bring it back a few seconds later.
+    private var unhide: DispatchWorkItem?
+    private func hide() {
+        ui.expanded = false
+        panel.orderOut(nil)
+        unhide?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.layout(animated: false)
+            self.panel.orderFrontRegardless()
+        }
+        unhide = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30 * 60, execute: work)
+    }
+
+    /// Stops the login service for this session (it starts again at the next login). Outside the
+    /// service, as with `./build.sh --run`, it just quits.
+    static func quitUntilLogin() {
+        if ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] == "local.claudepeek" {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            p.arguments = ["bootout", "gui/\(getuid())/local.claudepeek"]
+            try? p.run()
+            p.waitUntilExit()
+        }
+        NSApp.terminate(nil)
     }
 
     private func resetPosition() {

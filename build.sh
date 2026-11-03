@@ -30,9 +30,9 @@ PLIST
 codesign --force --sign - "$APP" >/dev/null
 echo "Built $PWD/$APP"
 
-# --install: copy to ~/Applications and register a LaunchAgent so it starts at login and is
-# restarted if it crashes or is killed. Quitting with × (a clean exit) keeps it closed until the
-# next login, or until you run: launchctl kickstart gui/$(id -u)/local.claudepeek
+# --install: copy to ~/Applications and register a LaunchAgent that starts it at login and restarts
+# it within seconds whenever it stops, however it stopped. To stop it until the next login, use
+# "Quit until next login" in its right-click menu, or: launchctl bootout gui/$(id -u)/local.claudepeek
 if [[ "${1:-}" == "--install" ]]; then
   DEST="$HOME/Applications/ClaudePeek.app"
   AGENT="$HOME/Library/LaunchAgents/local.claudepeek.plist"
@@ -50,7 +50,7 @@ if [[ "${1:-}" == "--install" ]]; then
   <key>Label</key><string>local.claudepeek</string>
   <key>Program</key><string>$DEST/Contents/MacOS/ClaudePeek</string>
   <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>5</integer>
   <key>ProcessType</key><string>Interactive</string>
   <key>LimitLoadToSessionType</key><string>Aqua</string>
@@ -58,8 +58,10 @@ if [[ "${1:-}" == "--install" ]]; then
 </plist>
 AGENTPLIST
   launchctl bootstrap "$DOMAIN" "$AGENT"
-  echo "Installed $DEST; it now starts at login and restarts if it stops unexpectedly."
+  echo "Installed $DEST; it now starts at login and restarts whenever it stops."
 elif [[ "${1:-}" == "--run" ]]; then
+  # Pause the installed copy so the two don't fight; ./build.sh --install (or the next login) brings it back.
+  launchctl bootout "gui/$(id -u)/local.claudepeek" 2>/dev/null && echo "Paused the installed copy until --install or next login." || true
   pkill -x ClaudePeek 2>/dev/null && sleep 1 || true
   open "$APP"
 fi

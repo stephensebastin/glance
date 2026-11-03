@@ -11,8 +11,8 @@ A small pill at the top of your Mac's screen. It shows your Claude Code sessions
 ## Build and run
 
 ```bash
-./build.sh --run       # build and open it once
-./build.sh --install   # copy to ~/Applications, start at login, restart if it stops
+./build.sh --install   # copy to ~/Applications and keep it running: starts at login, restarts within seconds if it stops
+./build.sh --run       # try a local build (pauses the installed copy until the next --install or login)
 ```
 
 ## Slack setup
@@ -74,5 +74,6 @@ The panel sets `NSWindow.sharingType = .none`, so screenshots, screen recording 
 
 ## Quit / start at login
 
-- Quit: hover, then click **×**, or right-click, then **Quit Claude Peek**.
-- Start at login: `./build.sh --install` sets up a LaunchAgent (`local.claudepeek`) that starts it at login and restarts it if it crashes or is killed. Quitting with × keeps it closed until the next login, or until you run `launchctl kickstart gui/$(id -u)/local.claudepeek`.
+- **Always running:** `./build.sh --install` sets up a LaunchAgent (`local.claudepeek`) that starts Peek at login and restarts it within seconds whenever it stops, whether it crashed, was killed or quit.
+- **Hide it for a while:** hover, then click **×**, or right-click, then **Hide for 30 minutes**. It comes back by itself.
+- **Stop it:** right-click, then **Quit until next login**. Or run `launchctl bootout gui/$(id -u)/local.claudepeek`, and run `./build.sh --install` to bring it back.
