@@ -769,6 +769,7 @@ final class UIState: ObservableObject {
 
 /// Callbacks from the views back to the window controller.
 struct PeekActions {
+    var collapse: () -> Void = {}
     var hide: () -> Void = {}
     var quit: () -> Void = {}
     var resetPosition: () -> Void = {}
@@ -1129,7 +1130,7 @@ struct ExpandedView: View {
                         IconButton(symbol: "arrow.clockwise", help: "Check Slack now") { store.refreshSlack() }
                     }
                 }
-                IconButton(symbol: "xmark", help: "Hide for 30 minutes", action: actions.hide)
+                IconButton(symbol: "xmark", help: "Close the panel", action: actions.collapse)
             }
             .padding(.horizontal, 14)
             .frame(height: Metrics.header)
@@ -1333,6 +1334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ note: Notification) {
         anchor = savedAnchor() ?? defaultAnchor()
         let actions = PeekActions(
+            collapse: { [weak self] in self?.collapsePanel() },
             hide: { [weak self] in self?.hide() },
             quit: { AppDelegate.quitUntilLogin() },
             resetPosition: { [weak self] in self?.resetPosition() },
@@ -1361,12 +1363,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func hover(_ inside: Bool) {
         collapse?.cancel()
         if inside {
-            guard !ui.expanded else { return }
+            guard !ui.expanded, !holdCollapsed else { return }
             ui.expanded = true
             layout(animated: true)
         } else {
+            holdCollapsed = false
             scheduleCollapse()
         }
+    }
+
+    /// × shrinks back to the pill, which always stays on screen. The pointer is still over it, so
+    /// don't re-expand until it has left once.
+    private var holdCollapsed = false
+    private func collapsePanel() {
+        collapse?.cancel()
+        holdCollapsed = true
+        ui.expanded = false
+        layout(animated: true)
+    }
+
+    /// Opening Claude Peek again (Spotlight, Finder, `open`) while it's running brings the pill back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        unhide?.cancel()
+        layout(animated: false)
+        panel.orderFrontRegardless()
+        return false
     }
 
     /// Collapses shortly after the pointer leaves, but not while dragging, while a menu is open,
@@ -1398,8 +1419,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// × hides rather than quits: the login service restarts Peek whenever it stops, so quitting
-    /// would only bring it back a few seconds later.
+    /// "Hide for 30 minutes": takes the pill off screen; it returns by itself, on reopen, or on restart.
     private var unhide: DispatchWorkItem?
     private func hide() {
         ui.expanded = false
@@ -1414,8 +1434,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 30 * 60, execute: work)
     }
 
-    /// Stops the login service for this session (it starts again at the next login). Outside the
-    /// service, as with `./build.sh --run`, it just quits.
+    /// Stops the login service for this session. It starts again at the next login, or when you
+    /// open Claude Peek from ~/Applications (see `rejoinLoginService`). Outside the service, as with
+    /// `./build.sh --run`, it just quits.
     static func quitUntilLogin() {
         if ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] == "local.claudepeek" {
             let p = Process()
@@ -1425,6 +1446,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             p.waitUntilExit()
         }
         NSApp.terminate(nil)
+    }
+
+    /// Opened by hand from the installed copy while its login service is stopped ("Quit until next
+    /// login"): hand over to the service, which starts the app and keeps it running.
+    static func rejoinLoginService() -> Bool {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let installed = home.appendingPathComponent("Applications/ClaudePeek.app").standardizedFileURL.path
+        let agent = home.appendingPathComponent("Library/LaunchAgents/local.claudepeek.plist").path
+        guard ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] != "local.claudepeek",
+              Bundle.main.bundleURL.standardizedFileURL.path == installed,
+              FileManager.default.fileExists(atPath: agent) else { return false }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        p.arguments = ["bootstrap", "gui/\(getuid())", agent]
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        p.waitUntilExit()
+        return p.terminationStatus == 0   // non-zero: already loaded, so keep running as we are
     }
 
     private func resetPosition() {
@@ -1550,6 +1589,7 @@ MainActor.assumeIsolated {
         store.refreshSlack { print(store.slackRefreshFailed ? "failed" : "ok: \(store.slack.count) items"); exit(0) }
         RunLoop.main.run()
     }
+    if AppDelegate.rejoinLoginService() { exit(0) }
     let app = NSApplication.shared
     let delegate = AppDelegate()
     app.delegate = delegate

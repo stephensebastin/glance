@@ -75,5 +75,7 @@ The panel sets `NSWindow.sharingType = .none`, so screenshots, screen recording 
 ## Quit / start at login
 
 - **Always running:** `./build.sh --install` sets up a LaunchAgent (`local.claudepeek`) that starts Peek at login and restarts it within seconds whenever it stops, whether it crashed, was killed or quit.
-- **Hide it for a while:** hover, then click **×**, or right-click, then **Hide for 30 minutes**. It comes back by itself.
-- **Stop it:** right-click, then **Quit until next login**. Or run `launchctl bootout gui/$(id -u)/local.claudepeek`, and run `./build.sh --install` to bring it back.
+- **Close the panel:** click **×**. The panel shrinks back to the pill, which always stays on screen.
+- **Hide it for a while:** right-click, then **Hide for 30 minutes**. It comes back by itself.
+- **Stop it:** right-click, then **Quit until next login**.
+- **Bring it back any time:** open **ClaudePeek** from Spotlight (⌘ Space) or `~/Applications`. That shows a hidden pill straight away, and after "Quit until next login" it also turns the always-on service back on. Any restart or login brings it back too.
