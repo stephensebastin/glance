@@ -19,13 +19,15 @@ Path: ~/Library/Application Support/ClaudePeek/slack.json
 2. DMs and group DMs to them: filters "is:dm after:<YYYY-MM-DD>" with channel_types "im,mpim".
 3. Threads they are part of: filters "from:<@<YOUR_SLACK_USER_ID>> is:thread after:<YYYY-MM-DD>". For each, check whether someone else replied after them with something for them.
 Drop search hits older than the window (search dates are day-granular; use the message timestamps).
+4. Messages the user marked done: run "hasmy::white_check_mark: after:<YYYY-MM-DD 7 days ago>" and "hasmy::heavy_check_mark: after:<same date>" (include_bots true, follow every page). Note each hit's channel and Message_ts. Use the 7-day window here, not the scan window: a ✅ can land on an older message, including one from the previous list. These are not candidates; they are used by the rules below.
 
 ## Decide, per conversation (one DM, or one thread)
 For each candidate, read the thread (slack_read_thread with the parent ts) or the recent DM history (slack_read_channel, oldest = start of window) so you see everything said after the message, including the user's own replies.
 
 Include it ONLY if ALL of these are true:
 - Someone other than the user (or an alert/bot that tags them by name) is waiting on THEM: a question to them, a request for their approval/decision/review/sign-off/ETA, a blocker they must unblock, an error or incident that needs their action, or a DM where a person greeted them or asked to talk and is waiting for a reply.
-- The user has NOT replied after that message in the same thread/DM, and has not reacted to that exact message with :white_check_mark:, :heavy_check_mark:, :+1: or :thumbsup: (a reaction only counts for acknowledgements and approvals, not for questions that need an answer).
+- The user has NOT replied after that message in the same thread/DM.
+- The user has NOT reacted with :white_check_mark: or :heavy_check_mark: (✅ ✔️) to that message or to any later message in the same thread/DM (search 4 lists them). A ✅ means they have read and handled it, whatever the ask, question or not, so leave it out. A :+1: / :thumbsup: from them counts only for acknowledgements and approvals, not for questions that need an answer.
 - Nobody else has already resolved it in the thread.
 - The latest message waiting on them is less than 7 days old.
 

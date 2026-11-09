@@ -47,6 +47,7 @@ The scan sorts every item into one of three groups, most urgent first, with whoe
   - A reply in the item's own thread closes it, whether or not you opened it from here.
   - A message in the DM or channel closes it only if you opened the item from here first. In a busy DM you often write about other things, so that alone doesn't prove you answered.
   - Only messages sent from the Slack app on this Mac are seen. Replies from your phone or the browser are picked up by the next scan.
+- **A ✅ counts as handled.** React with :white_check_mark: or :heavy_check_mark: to the message (or a later one in the same thread or DM), and the next scan drops it, whatever was asked. Press **↻** to clear it within about a minute. This can't happen instantly like a reply: Slack's log records that you added a reaction, but not to which message.
 - Scheduled tasks run while the Claude app is open. A run that was due while it was closed happens the next time you open it.
 - The task's own runs are hidden from the session list.
 
