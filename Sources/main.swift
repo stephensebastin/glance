@@ -495,8 +495,8 @@ final class SessionStore: ObservableObject {
         slackRefreshFailed = false
         slackScanPid = process.processIdentifier
         onChange?()
-        // A scan normally takes a minute or two; give up after ten.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 600) { if process.isRunning { process.terminate() } }
+        // A scan normally takes two or three minutes; give up after fifteen.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 900) { if process.isRunning { process.terminate() } }
 
         DispatchQueue.global().async {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()

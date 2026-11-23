@@ -30,7 +30,7 @@ A small pill at the top of your Mac's screen. It shows your Claude Code sessions
 
 A scheduled Claude task, `slack-waiting-on-me`, scans Slack at 9am, 1pm, 5pm, 9pm and 1am. It only reads Slack, and never posts or reacts. It keeps only conversations where someone is waiting on your reply, approval or action, and you haven't answered yet. Being cc'd, FYI posts, broadcasts and bot posts without an ask are left out. Results go to `~/Library/Application Support/ClaudePeek/slack.json`.
 
-**Check now:** on the Slack tab, click **↻** in the header to run the same scan immediately. It takes about a minute, and the header shows a spinner and "checking now…" until it's done. It runs through the `claude` CLI (Homebrew's copy first) with your claude.ai Slack connector. It can only search and read Slack: it has no file, shell or posting tools. Claude Peek writes `slack.json` itself from the result. If it fails, the header says "refresh failed" and the CLI's reply is saved to `slack-refresh-error.log` in the same folder.
+**Check now:** on the Slack tab, click **↻** in the header to run the same scan immediately. It takes one to three minutes, and the header shows a spinner and "checking now…" until it's done. It runs through the `claude` CLI (Homebrew's copy first) with your claude.ai Slack connector. It can only search and read Slack: it has no file, shell or posting tools. Claude Peek writes `slack.json` itself from the result. If it fails, the header says "refresh failed" and the CLI's reply is saved to `slack-refresh-error.log` in the same folder.
 
 The scan sorts every item into one of three groups, most urgent first, with whoever has waited longest on top:
 

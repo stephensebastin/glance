@@ -11,20 +11,22 @@ You are refreshing the "Waiting on you" list for the user's Claude Peek desktop 
 
 ## Output file
 Path: ~/Library/Application Support/ClaudePeek/slack.json
-1. If the file exists, read it first. Its `items` are the previous list. Re-check each of them (they stay only if still waiting), and use its `scannedAt` to pick the search window.
-2. Search window: from (previous scannedAt minus 1 hour) to now. If there is no previous file, or scannedAt is older than 3 days, use the last 3 days.
+1. If the file exists, read it first. Its `items` are the previous list. Re-check each of them: they stay only if still waiting.
+2. Search window: always the last 3 full days plus today, whatever the previous `scannedAt` says. A scan that missed something must not hide it from every later scan. In Slack search `after:` excludes the date given, so use the date 4 days ago (e.g. on 2026-11-23 use "after:2026-11-19").
 
-## Find candidates (run these searches; sort by timestamp; include_context false; follow up to 3 pages each)
-1. Direct mentions: keywords ["<@<YOUR_SLACK_USER_ID>>"], filters "after:<YYYY-MM-DD>" (all channel types, include_bots true).
-2. DMs and group DMs to them: filters "is:dm after:<YYYY-MM-DD>" with channel_types "im,mpim".
-3. Threads they are part of: filters "from:<@<YOUR_SLACK_USER_ID>> is:thread after:<YYYY-MM-DD>". For each, check whether someone else replied after them with something for them.
-Drop search hits older than the window (search dates are day-granular; use the message timestamps).
-4. Messages the user marked done: run "hasmy::white_check_mark: after:<YYYY-MM-DD 7 days ago>" and "hasmy::heavy_check_mark: after:<same date>" (include_bots true, follow every page). Note each hit's channel and Message_ts. Use the 7-day window here, not the scan window: a ✅ can land on an older message, including one from the previous list. These are not candidates; they are used by the rules below.
+## Find candidates
+Use sort "timestamp", include_context false, response_format "concise". Follow next_cursor until there are no more pages (up to 5 pages per search); never stop at the first page.
+1. Direct mentions: keywords ["<@<YOUR_SLACK_USER_ID>>"], filters "after:<date>", include_bots true.
+2. DMs and group DMs: one search PER DAY, filters "is:dm on:<YYYY-MM-DD>" with channel_types "im,mpim", for today and each of the 3 days before. Do not use a single "is:dm after:" search: over several days Slack returns only the newest day and reports no more pages.
+3. Threads they are part of: filters "from:<@<YOUR_SLACK_USER_ID>> is:thread after:<date>". For each, check whether someone else replied after them with something for them.
+4. Messages the user marked done: "hasmy::white_check_mark: after:<date 7 days ago>" and "hasmy::heavy_check_mark: after:<same date>" (include_bots true). Note each hit's channel and Message_ts. These are not candidates; the rules below use them.
+
+Group every hit from searches 1 to 3, plus the previous list, into conversations (one DM or group DM, or one thread). Skip a conversation only when the newest message in it is the user's own; every other conversation must be read before you decide. Never decide from search snippets alone.
 
 ## Decide, per conversation (one DM, or one thread)
 For each candidate, read the thread (slack_read_thread with the parent ts) or the recent DM history (slack_read_channel, oldest = start of window) so you see everything said after the message, including the user's own replies.
 
-Include it ONLY if ALL of these are true:
+Include it ONLY if ALL of these are true (an ask that tags the user together with other people still counts, unless one of them has already answered it):
 - Someone other than the user (or an alert/bot that tags them by name) is waiting on THEM: a question to them, a request for their approval/decision/review/sign-off/ETA, a blocker they must unblock, an error or incident that needs their action, or a DM where a person greeted them or asked to talk and is waiting for a reply.
 - The user has NOT replied after that message in the same thread/DM.
 - The user has NOT reacted with :white_check_mark: or :heavy_check_mark: (✅ ✔️) to that message or to any later message in the same thread/DM (search 4 lists them). A ✅ means they have read and handled it, whatever the ask, question or not, so leave it out. A :+1: / :thumbsup: from them counts only for acknowledgements and approvals, not for questions that need an answer.
@@ -61,7 +63,7 @@ Order: blocked first, then input, then read; oldest first within each, so whoeve
 
 ## Write
 Write this JSON, then move it into place so the widget never reads a half-written file:
-{"scannedAt": "<now, ISO 8601 with offset, e.g. 2026-10-28T21:30:00+05:30>", "items": [ ... ]}
+{"scannedAt": "<now, ISO 8601 with offset, e.g. 2026-10-28T21:30:00+05:30>", "checked": <number of conversations you read>, "items": [ ... ]}
 Write to slack.json.tmp in the same folder (create the folder if missing), then `mv -f` it to slack.json. Write the file even when there are no items ("items": []), so the widget knows the scan ran.
 
 Finish with one short line: how many people are waiting on the user. Nothing else.
